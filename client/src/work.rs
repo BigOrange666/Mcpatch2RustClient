@@ -4,17 +4,14 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use shared::common::file_hash::calculate_hash_async;
-use shared::data::index_file::IndexFile;
-use shared::data::version_meta::FileChange;
-use shared::data::version_meta::VersionMeta;
-use shared::utility::filename_ext::GetFileNamePart;
-use shared::utility::is_running_under_cargo;
-use shared::utility::vec_ext::VecRemoveIf;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncSeekExt;
 use tokio::io::AsyncWriteExt;
 
+use crate::common::file_hash::calculate_hash_async;
+use crate::data::index_file::IndexFile;
+use crate::data::version_meta::FileChange;
+use crate::data::version_meta::VersionMeta;
 use crate::error::BusinessError;
 use crate::error::BusinessResult;
 use crate::error::OptionToBusinessError;
@@ -30,7 +27,10 @@ use crate::log::FileHandler;
 use crate::log::MessageLevel;
 use crate::network::Network;
 use crate::speed_sampler::SpeedCalculator;
-use crate::utils::convert_bytes;
+use crate::utility::convert_bytes;
+use crate::utility::filename_ext::GetFileNamePart;
+use crate::utility::is_running_under_cargo;
+use crate::utility::vec_ext::VecRemoveIf;
 use crate::McpatchExitCode;
 use crate::StartupParameter;
 

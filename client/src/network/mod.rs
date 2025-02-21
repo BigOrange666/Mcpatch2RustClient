@@ -7,7 +7,6 @@ use std::ops::Range;
 use std::pin::Pin;
 
 use async_trait::async_trait;
-use shared::utility::is_running_under_cargo;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
 
@@ -22,6 +21,7 @@ use crate::network::http::HttpProtocol;
 use crate::network::private::PrivateProtocol;
 use crate::network::webdav::Webdav;
 use crate::network::alist::AlistProtocol;
+use crate::utility::is_running_under_cargo;
 
 pub type DownloadResult = std::io::Result<BusinessResult<(u64, Pin<Box<dyn AsyncRead + Send>>)>>;
 

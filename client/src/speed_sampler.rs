@@ -1,7 +1,7 @@
 use std::collections::LinkedList;
 use std::time::SystemTime;
 
-use crate::utils::convert_bytes;
+use crate::utility::convert_bytes;
 
 #[derive(Clone, Copy)]
 struct Sample {

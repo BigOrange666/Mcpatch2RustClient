@@ -4,19 +4,20 @@ pub mod log;
 pub mod work;
 pub mod network;
 pub mod speed_sampler;
-pub mod utils;
 
 #[cfg(target_os = "windows")]
 pub mod ui;
+pub mod utility;
+pub mod data;
+pub mod common;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use shared::utility::is_running_under_cargo;
-
 use crate::global_config::GlobalConfig;
 use crate::log::log_error;
+use crate::utility::is_running_under_cargo;
 use crate::work::run;
 
 pub struct AppContext {
