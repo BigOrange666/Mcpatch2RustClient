@@ -10,7 +10,7 @@ use crate::error::ResultToBusinessError;
 #[derive(ConfigTemplate)]
 pub struct GlobalConfig {
     /// 更新服务器地址，可以填写多个备用地址，当一个不可用时会切换到备用地址上
-    /// 目前支持的协议：http(s)、webdav(s)、私有协议、Alist网盘协议
+    /// 目前支持的协议：http(s)、webdav(s)、私有协议、Alist网盘协议、gitee协议
     ///
     /// http协议的例子：（填写索引文件index.json所在的目录就好，不需要填写index.json本身）
     ///   1. http://127.0.0.1:6700 （走http协议）
@@ -30,6 +30,10 @@ pub struct GlobalConfig {
     ///   注：直接把Alist网盘的网址复制到这里即可，开启签名也可以正常使用
     ///     如 alist://https://al.nn.ci/special_filename
     /// 
+    /// gitee协议的例子：（gitee协议用于支持gitee仓库的更新源）
+    ///   支持gitee仓库的更新源：https://gitee.com/api/v5/repos/用户名/仓库名/contents/目录路径?ref=分支名
+    ///   例： gitee://https://gitee.com/api/v5/repos/xxxxxx/xxxxx/contents/xxx?ref=master
+    /// 
     #[default_value("\n  - mcpatch://127.0.0.1:6700 # 若在公网部署记得换成自己的公网ip或者域名")]
     pub urls: Vec<String>,
 
@@ -45,7 +49,7 @@ pub struct GlobalConfig {
     #[default_value("false")]
     pub allow_error: bool,
 
-    /// 在没有更新时，是否显示“资源文件暂无更新!”提示框
+    /// 在没有更新时，是否显示"资源文件暂无更新!"提示框
     /// 在有更新时，此选项不生效
     #[default_value("true")]
     pub show_finish_message: bool,
