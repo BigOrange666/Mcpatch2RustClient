@@ -156,8 +156,9 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
     #[cfg(target_os = "windows")]
     ui_cmd.set_label("正在检查更新".to_owned()).await;
 
-    let server_versions = network.request_text("index.json", 0..0, "index file").await.be(|e| format!("检查更新失败，原因：{:?}", e))?;
-    let server_versions = IndexFile::load_from_json(&server_versions);
+    // 首先获取完整的index.json文件，使用合理的范围
+    let server_versions_text = network.request_text("index.json", 0..1000, "index file").await.be(|e| format!("检查更新失败，原因：{:?}", e))?;
+    let server_versions = IndexFile::load_from_json(&server_versions_text);
 
     #[cfg(target_os = "windows")]
     ui_cmd.set_label("正在看有没有更新".to_owned()).await;
@@ -726,4 +727,3 @@ async fn get_working_dir(_params: &StartupParameter) -> BusinessResult<PathBuf> 
 
     Ok(working_dir)
 }
-

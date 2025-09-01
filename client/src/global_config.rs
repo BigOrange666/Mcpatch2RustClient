@@ -37,6 +37,12 @@ pub struct GlobalConfig {
     #[default_value("\n  - mcpatch://127.0.0.1:6700 # 若在公网部署记得换成自己的公网ip或者域名")]
     pub urls: Vec<String>,
 
+    /// Gitee访问令牌，用于提高API请求限制和下载大文件
+    /// 可以在https://gitee.com/profile/personal_access_tokens申请个人访问令牌
+    /// 配置后可以避免API速率限制和大文件下载问题
+    #[default_value("")]
+    pub gitee_token: String,
+
     /// 记录客户端版本号文件的路径
     /// 客户端的版本号会被存储在这个文件里，并以此为依据判断是否更新到了最新版本
     #[default_value("version-label.txt")]
@@ -159,6 +165,7 @@ impl GlobalConfig {
             }
         }
 
+        let gitee_token = config["gitee_token"].as_str().unwrap_or("").to_owned();
         let version_file_path = config["version-file-path"].as_str().be(|| "配置文件中找不到 version-file-path")?.to_owned();
         let allow_error = config["allow-error"].as_bool().be(|| "配置文件中找不到 allow-error")?.to_owned();
         let show_finish_message = config["show-finish-message"].as_bool().be(|| "配置文件中找不到 show-finish-message")?.to_owned();
@@ -184,6 +191,7 @@ impl GlobalConfig {
 
         Ok(GlobalConfig {
             urls,
+            gitee_token,
             version_file_path,
             allow_error,
             show_finish_message,

@@ -1,3 +1,7 @@
 /target
 /test
 .idea
+/.cargo
+/.vscode
+.DS_Store
+Thumbs.db

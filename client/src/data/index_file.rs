@@ -57,15 +57,52 @@ impl IndexFile {
 
     /// 从Json字符串加载
     pub fn load_from_json(json: &str) -> Self {
-        let root = json::parse(json).unwrap();
+        eprintln!("解析JSON内容: {}", json);
+        let root = match json::parse(json) {
+            Ok(root) => root,
+            Err(e) => {
+                eprintln!("JSON解析错误: {:?}", e);
+                return Self { versions: Vec::new() };
+            }
+        };
         let mut versions = Vec::<VersionIndex>::new();
 
         for v in root.members() {
-            let label = v["label"].as_str().unwrap().to_owned();
-            let filename = v["filename"].as_str().unwrap().to_owned();
-            let offset = v["offset"].as_u64().unwrap();
-            let len = v["length"].as_u32().unwrap();
-            let hash = v["hash"].as_str().unwrap().to_owned();
+            let label = match v["label"].as_str() {
+                Some(label) => label.to_owned(),
+                None => {
+                    eprintln!("缺少label字段: {:?}", v);
+                    continue;
+                }
+            };
+            let filename = match v["filename"].as_str() {
+                Some(filename) => filename.to_owned(),
+                None => {
+                    eprintln!("缺少filename字段: {:?}", v);
+                    continue;
+                }
+            };
+            let offset = match v["offset"].as_u64() {
+                Some(offset) => offset,
+                None => {
+                    eprintln!("缺少offset字段: {:?}", v);
+                    continue;
+                }
+            };
+            let len = match v["length"].as_u32() {
+                Some(len) => len,
+                None => {
+                    eprintln!("缺少length字段: {:?}", v);
+                    continue;
+                }
+            };
+            let hash = match v["hash"].as_str() {
+                Some(hash) => hash.to_owned(),
+                None => {
+                    eprintln!("缺少hash字段: {:?}", v);
+                    continue;
+                }
+            };
 
             versions.push(VersionIndex { label, filename, len, offset, hash })
         }
