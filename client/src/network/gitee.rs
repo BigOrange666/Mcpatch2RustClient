@@ -319,7 +319,11 @@ impl GiteeProtocol {
 
         // 计算实际可读取的长度
         let max_len = (file_size - start) as usize;
-        let requested_len = (range.end - range.start) as usize;
+        let requested_len = if range.end == u64::MAX {
+            usize::MAX // 读取到文件末尾
+        } else {
+            (range.end - range.start) as usize
+        };
         let actual_len = std::cmp::min(max_len, requested_len);
 
         eprintln!("文件大小: {}, 请求长度: {}, 实际长度: {}", file_size, requested_len, actual_len);

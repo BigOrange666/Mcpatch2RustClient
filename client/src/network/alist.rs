@@ -190,7 +190,13 @@ impl AlistProtocol {
 
         // 如果是分段请求，添加Range头
         if partial_file {
-            req = req.header("Range", format!("bytes={}-{}", range.start, range.end - 1));
+            // 如果range.end是u64::MAX，表示读取到文件末尾，使用标准的Range格式
+            let range_header = if range.end == u64::MAX {
+                format!("bytes={}-", range.start)
+            } else {
+                format!("bytes={}-{}", range.start, range.end - 1)
+            };
+            req = req.header("Range", range_header);
         }
 
         let req = req.build().unwrap();
@@ -219,8 +225,10 @@ impl AlistProtocol {
                 None => return Ok(Err(BusinessError::new(format!("服务器({})没有返回content-length头: {} ({})", self.index, path, desc)))),
             };
 
-            if (range.end - range.start) > 0 && len != range.end - range.start {
-                return Ok(Err(BusinessError::new(format!("服务器({})返回的content-length头 {} 不等于{}: {}", self.index, len, range.end - range.start, path))));
+            // 只有在明确指定了范围结束位置且不是读取整个文件时才检查长度匹配
+            let requested_len = range.end - range.start;
+            if range.end != u64::MAX && requested_len > 0 && len != requested_len {
+                return Ok(Err(BusinessError::new(format!("服务器({})返回的content-length头 {} 不等于{}: {}", self.index, len, requested_len, path))));
             }
         }
 

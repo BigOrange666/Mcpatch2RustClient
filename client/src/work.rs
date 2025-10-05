@@ -156,8 +156,8 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
     #[cfg(target_os = "windows")]
     ui_cmd.set_label("正在检查更新".to_owned()).await;
 
-    // 首先获取完整的index.json文件，使用合理的范围
-    let server_versions_text = network.request_text("index.json", 0..1000, "index file").await.be(|e| format!("检查更新失败，原因：{:?}", e))?;
+    // 首先获取完整的index.json文件
+    let server_versions_text = network.request_text("index.json", 0..u64::MAX, "index file").await.be(|e| format!("检查更新失败，原因：{:?}", e))?;
     let server_versions = IndexFile::load_from_json(&server_versions_text);
 
     #[cfg(target_os = "windows")]
