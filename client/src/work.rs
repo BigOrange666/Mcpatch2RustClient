@@ -631,8 +631,11 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
 
         // 2.弹出更新记录
         let mut changelogs = "".to_owned();
-
-        for meta in &version_metas {
+        
+        let mut version_metas_rev = version_metas.iter().collect::<Vec<&FullVersionMeta>>();
+        version_metas_rev.reverse();
+        
+        for meta in &version_metas_rev {
             changelogs += &format!("++++++++++ {} ++++++++++\n{}\n\n", meta.metadata.label, meta.metadata.logs);
         }
 
