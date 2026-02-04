@@ -69,6 +69,11 @@ pub async fn run(params: StartupParameter, ui_cmd: UiCmd<'_>) -> McpatchExitCode
         Err(e) => {
             log_error(&e.reason);
 
+            // 检查是否是重启错误，如果是则直接返回退出码1
+            if e.reason.starts_with("REBOOT_REQUIRED:") {
+                return McpatchExitCode(1);
+            }
+
             if params.graphic_mode {
                 #[cfg(target_os = "windows")]
                 {
@@ -182,6 +187,9 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
     let latest_version = &server_versions[server_versions.len() - 1].label;
     
     println!("latest: {}, current: {}", latest_version, current_version);
+    
+    // 定义重启标志变量，确保在函数的更广作用域中可用
+    let mut need_reboot = false;
 
     if latest_version != &current_version {
         if config.silent_mode {
@@ -208,8 +216,14 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
         // 下载所有更新包元数据
         let mut version_metas = Vec::<FullVersionMeta>::new();
         let mut counter = 1;
+        let mut actual_updated_version = current_version.clone(); // 记录实际更新的版本号
 
+        // 在版本元数据收集过程中检测重启标记
+        let mut should_break = false;
         for ver in &missing_versions {
+            if should_break {
+                break;
+            }
             #[cfg(target_os = "windows")]
             ui_cmd.set_label(format!("正在下载元数据 {} ({}/{})", ver.label, counter, missing_versions.len())).await;
             counter += 1;
@@ -221,12 +235,30 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
 
             let meta = json::parse(&meta_text).be(|e| format!("版本 {} 的元数据解析失败，原因：{:?}", ver.label, e))?;
 
+            // 检查当前版本是否包含重启标记文件
+            for meta_member in meta.members().map(|e| VersionMeta::load(e)) {
+                if meta_member.changes.iter().any(|change| {
+                    match change {
+                        FileChange::UpdateFile { path, .. } => path.ends_with(".reboot"),
+                        _ => false,
+                    }
+                }) {
+                    need_reboot = true;
+                    log_info(&format!("检测到版本 {} 包含重启标记", ver.label));
+                    // 检测到重启标记后，设置标志位，跳出循环，不再处理后续版本
+                    should_break = true;
+                    break;
+                }
+            }
+
             // 避免重复添加元数据
             for meta in meta.members().map(|e| VersionMeta::load(e)) {
                 if version_metas.iter().find(|e| e.metadata.label == meta.label).is_none() {
                     version_metas.push(FullVersionMeta { filename: ver.filename.to_owned(), metadata: meta });
                 }
             }
+            // 记录实际更新的版本号
+            actual_updated_version = ver.label.clone();
         }
 
         struct FullVersionMeta {
@@ -627,7 +659,7 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
         ui_cmd.set_label("正在进行收尾工作".to_owned()).await;
 
         // 1.更新客户端版本号
-        tokio::fs::write(&version_file, latest_version.as_bytes()).await.be(|e| format!("更新客户端版本号文件为 {} 时失败({:?})，原因：{:?}", latest_version, version_file, e))?;
+        tokio::fs::write(&version_file, actual_updated_version.as_bytes()).await.be(|e| format!("更新客户端版本号文件为 {} 时失败({:?})，原因：{:?}", actual_updated_version, version_file, e))?;
 
         // 2.弹出更新记录
         let mut changelogs = "".to_owned();
@@ -644,7 +676,7 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
         // 弹出更新记录窗口
         #[cfg(target_os = "windows")]
         {
-            let content = format!("已经从 {} 更新到 {}\r\n\r\n{}", current_version, latest_version, changelogs.trim().replace("\n", "\r\n"));
+            let content = format!("已经从 {} 更新到 {}\r\n\r\n{}", current_version, actual_updated_version, changelogs.trim().replace("\n", "\r\n"));
 
             if config.show_changelogs_message {
                 MessageBoxWindow::popup(config.changelogs_window_title, content).await;
@@ -665,7 +697,22 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
             }).await;
         }
     }
-
+    // 如果需要重启，在执行重启
+    if need_reboot {
+        log_info("检测到重启标记，需要手动重启程序以完成更新");
+        #[cfg(target_os = "windows")]
+        {
+            // 弹出只能点击"确定"的重启提示窗口
+            let content = "此更新需要重新启动！请手动重启客户端";
+            ui_cmd.popup_dialog(DialogContent {
+                title: "需要重启".to_owned(),
+                content: content.to_owned(),
+                yesno: false,  // false表示只有一个确定按钮
+            }).await;
+        }
+        // 返回特殊的错误消息，让错误处理代码识别这是重启错误
+        return Err(BusinessError::new("REBOOT_REQUIRED:需要手动重启程序以完成更新"));
+    }
     Ok(())
 }
 
