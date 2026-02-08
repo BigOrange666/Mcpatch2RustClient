@@ -74,6 +74,11 @@ pub async fn run(params: StartupParameter, ui_cmd: UiCmd<'_>) -> McpatchExitCode
                 return McpatchExitCode(1);
             }
 
+            // 检查是否是.stop文件导致的停止，如果是则直接返回退出码1
+            if e.reason == "STOP_FILE_DETECTED" {
+                return McpatchExitCode(1);
+            }
+
             if params.graphic_mode {
                 #[cfg(target_os = "windows")]
                 {
@@ -107,6 +112,22 @@ pub async fn run(params: StartupParameter, ui_cmd: UiCmd<'_>) -> McpatchExitCode
 pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mut bool) -> Result<(), BusinessError> {
     let working_dir = get_working_dir(params).await?;
     let exe_dir = get_executable_dir(params).await?;
+    
+    // 检测是否存在.stop文件，如果存在则弹出公告并退出
+    let stop_file_path = exe_dir.join(".stop");
+    if let Ok(content) = tokio::fs::read_to_string(&stop_file_path).await {
+        log_info("检测到.stop文件，准备弹出公告并退出");
+        #[cfg(target_os = "windows")]
+        {
+            MessageBoxWindow::popup("停用通知", &content).await;
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            println!("停用通知:\n{}", content);
+        }
+        return Err(BusinessError::new("STOP_FILE_DETECTED"));
+    }
+    
     let config = GlobalConfig::load(&exe_dir.join("mcpatch.yml")).await?;
     let base_dir = get_base_dir(params, &config).await?;
 
