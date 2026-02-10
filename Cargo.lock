@@ -146,6 +146,7 @@ dependencies = [
  "config_template_derive",
  "crc",
  "embed-resource",
+ "encoding_rs",
  "futures-util",
  "indicatif",
  "json",

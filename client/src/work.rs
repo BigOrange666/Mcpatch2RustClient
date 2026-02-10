@@ -115,7 +115,16 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
     
     // 检测是否存在.stop文件，如果存在则弹出公告并退出
     let stop_file_path = exe_dir.join(".stop");
-    if let Ok(content) = tokio::fs::read_to_string(&stop_file_path).await {
+    // 尝试读取文件内容，支持 UTF-8 和 GBK 编码
+    if let Ok(bytes) = std::fs::read(&stop_file_path) {
+        let content = if let Ok(utf8_content) = std::str::from_utf8(&bytes) {
+            utf8_content.to_string()
+        } else {
+            // UTF-8 解码失败，尝试 GBK 编码
+            let (decoded, _, _) = encoding_rs::GBK.decode(&bytes);
+            decoded.to_string()
+        };
+        
         log_info("检测到.stop文件，准备弹出公告并退出");
         #[cfg(target_os = "windows")]
         {
