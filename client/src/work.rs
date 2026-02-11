@@ -727,6 +727,33 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
             }).await;
         }
     }
+    // 更新完成后，检测.stop文件是否被更新，如果是则弹出公告并退出
+    match std::fs::read(&stop_file_path) {
+        Ok(bytes) => {
+            let content = if let Ok(utf8_content) = std::str::from_utf8(&bytes) {
+                utf8_content.to_string()
+            } else {
+                // UTF-8 解码失败，尝试 GBK 编码
+                let (decoded, _, _) = encoding_rs::GBK.decode(&bytes);
+                decoded.to_string()
+            };
+            
+            log_info("更新完成后检测到.stop文件，准备弹出公告并退出");
+            #[cfg(target_os = "windows")]
+            {
+                MessageBoxWindow::popup("停用通知", &content).await;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                println!("停用通知:\n{}", content);
+            }
+            return Err(BusinessError::new("STOP_FILE_DETECTED"));
+        }
+        Err(_) => {
+            // .stop文件不存在，继续正常流程
+        }
+    }
+    
     // 如果需要重启，在执行重启
     if need_reboot {
         log_info("检测到重启标记，需要手动重启程序以完成更新");
