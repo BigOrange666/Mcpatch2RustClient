@@ -113,10 +113,16 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
     let working_dir = get_working_dir(params).await?;
     let exe_dir = get_executable_dir(params).await?;
     
-    // 检测是否存在.stop文件，如果存在则弹出公告并退出
+    // 检测是否存在.stop文件，如果存在且没有.ok文件则弹出公告并退出
     let stop_file_path = exe_dir.join(".stop");
-    // 尝试读取文件内容，支持 UTF-8 和 GBK 编码
+    let ok_file_path = exe_dir.join(".ok");
+    
+    // 检查.stop文件是否存在
     if let Ok(bytes) = std::fs::read(&stop_file_path) {
+        // 检查.ok文件是否存在
+        let ok_exists = std::path::Path::new(&ok_file_path).exists();
+        
+        // 解码.stop文件内容，支持 UTF-8 和 GBK 编码
         let content = if let Ok(utf8_content) = std::str::from_utf8(&bytes) {
             utf8_content.to_string()
         } else {
@@ -125,17 +131,26 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
             decoded.to_string()
         };
         
-        log_info("检测到.stop文件，准备弹出公告并退出");
-        #[cfg(target_os = "windows")]
-        {
-            MessageBoxWindow::popup("停用通知", &content).await;
+        if ok_exists {
+            // 情况2：有stop，有ok - 删除stop和ok文件，继续运行
+            log_info("检测到.stop和.ok文件，删除后允许启动");
+            let _ = std::fs::remove_file(&stop_file_path);
+            let _ = std::fs::remove_file(&ok_file_path);
+        } else {
+            // 情况1：有stop，没ok - 弹出停用通知并退出（不删除文件）
+            log_info("检测到.stop文件，准备弹出公告并退出");
+            #[cfg(target_os = "windows")]
+            {
+                MessageBoxWindow::popup("停用通知", &content).await;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                println!("停用通知:\n{}", content);
+            }
+            return Err(BusinessError::new("STOP_FILE_DETECTED"));
         }
-        #[cfg(not(target_os = "windows"))]
-        {
-            println!("停用通知:\n{}", content);
-        }
-        return Err(BusinessError::new("STOP_FILE_DETECTED"));
     }
+    // 情况3：没有stop - 继续运行（有没有ok都无所谓）
     
     let config = GlobalConfig::load(&exe_dir.join("mcpatch.yml")).await?;
     let base_dir = get_base_dir(params, &config).await?;
@@ -727,9 +742,13 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
             }).await;
         }
     }
-    // 更新完成后，检测.stop文件是否被更新，如果是则弹出公告并退出
+    // 更新完成后，检测.stop文件
     match std::fs::read(&stop_file_path) {
         Ok(bytes) => {
+            // 检查.ok文件是否存在
+            let ok_exists = std::path::Path::new(&ok_file_path).exists();
+            
+            // 解码.stop文件内容，支持 UTF-8 和 GBK 编码
             let content = if let Ok(utf8_content) = std::str::from_utf8(&bytes) {
                 utf8_content.to_string()
             } else {
@@ -738,19 +757,27 @@ pub async fn work(params: &StartupParameter, ui_cmd: UiCmd<'_>, allow_error: &mu
                 decoded.to_string()
             };
             
-            log_info("更新完成后检测到.stop文件，准备弹出公告并退出");
-            #[cfg(target_os = "windows")]
-            {
-                MessageBoxWindow::popup("停用通知", &content).await;
+            if ok_exists {
+                // 情况2：有stop，有ok - 删除stop和ok文件，继续运行
+                log_info("更新后检测到.stop和.ok文件，删除后允许启动");
+                let _ = std::fs::remove_file(&stop_file_path);
+                let _ = std::fs::remove_file(&ok_file_path);
+            } else {
+                // 情况1：有stop，没ok - 弹出停用通知并退出（不删除文件）
+                log_info("更新完成后检测到.stop文件，准备弹出公告并退出");
+                #[cfg(target_os = "windows")]
+                {
+                    MessageBoxWindow::popup("停用通知", &content).await;
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    println!("停用通知:\n{}", content);
+                }
+                return Err(BusinessError::new("STOP_FILE_DETECTED"));
             }
-            #[cfg(not(target_os = "windows"))]
-            {
-                println!("停用通知:\n{}", content);
-            }
-            return Err(BusinessError::new("STOP_FILE_DETECTED"));
         }
         Err(_) => {
-            // .stop文件不存在，继续正常流程
+            // 情况3：没有stop - 继续正常流程
         }
     }
     
